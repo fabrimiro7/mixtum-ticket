@@ -69,7 +69,7 @@ urlpatterns = [
     # Finance
     path('api/finance_manager_accounts/', include(('plugins.finance_manager_accounts.urls', 'finance_manager_accounts'), namespace='finance_account')),
     path('api/finance_manager_core/', include(('plugins.finance_manager_core.urls', 'finance_manager_core'), namespace='finance_core')),
-    path('api/finance_manager_planning/', include(('plugins.finance_manager_planning.urls', 'finance_manager_planning'), namespace='report')),
+    path('api/finance_manager_planning/', include(('plugins.finance_manager_planning.urls', 'finance_manager_planning'), namespace='finance_manager_planning')),
 
 
     # Cheshire Cat AI Integration
