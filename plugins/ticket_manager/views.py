@@ -204,6 +204,13 @@ class TicketList(generics.ListCreateAPIView):
             if project:
                 qs = qs.filter(project_id=project)
 
+        # ticket_type__in (lista CSV)
+        ticket_type_in = params.get("ticket_type__in")
+        if ticket_type_in:
+            types = [t.strip() for t in ticket_type_in.split(",") if t.strip()]
+            if types:
+                qs = qs.filter(ticket_type__in=types)
+
         # search: per id (se numerico) o parole in titolo/descrizione
         search = params.get("search")
         if search:
