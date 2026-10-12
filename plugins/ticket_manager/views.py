@@ -16,7 +16,7 @@ from .models import Ticket, Message, Task, TASK_STATUS_CHOICES, TicketUserRead
 from plugins.project_manager.models import Project
 from base_modules.user_manager.models import User
 from typing import Optional
-from .serializers import MessageFullSerializer, TicketSerializer, MessageSerializer, TicketPostSerializer, TaskSerializer
+from .serializers import MessageFullSerializer, TicketSerializer, MessageSerializer, TicketPostSerializer, TaskCreateSerializer, TaskSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from mixtum_core.settings.base import REMOTE_API
@@ -796,6 +796,41 @@ class ProjectTaskList(APIView):
         tasks = Task.objects.filter(project_id=project_id).select_related('assignee')
         serializer = TaskSerializer(tasks, many=True)
         return Response({"data": serializer.data}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        project_id = request.data.get('project') or request.data.get('project_id')
+        if not project_id:
+            return Response(
+                {"detail": "Parametro 'project' o 'project_id' obbligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            project = Project.objects.select_related('client').get(pk=project_id)
+        except Project.DoesNotExist:
+            return Response({"detail": "Progetto non trovato."}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        if hasattr(user, "is_at_least_associate") and callable(user.is_at_least_associate) and user.is_at_least_associate():
+            pass
+        elif project.client_id == getattr(user, "id", None):
+            pass
+        else:
+            return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()
+        if data.get('project_id') and not data.get('project'):
+            data['project'] = data.get('project_id')
+        elif not data.get('project'):
+            data['project'] = project_id
+
+        serializer = TaskCreateSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        task = serializer.save()
+        out = TaskSerializer(task)
+        return Response(out.data, status=status.HTTP_201_CREATED)
 
 
 class TaskUpdateView(APIView):

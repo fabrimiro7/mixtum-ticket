@@ -378,15 +378,6 @@ class Migration(migrations.Migration):
                         to="workspace.workspace",
                     ),
                 ),
-                (
-                    "categories",
-                    models.ManyToManyField(
-                        blank=True,
-                        related_name="documents",
-                        through="documents.DocumentCategoryAssignment",
-                        to="documents.documentcategory",
-                    ),
-                ),
             ],
             options={
                 "verbose_name": "Document",
@@ -469,6 +460,16 @@ class Migration(migrations.Migration):
                 "verbose_name": "Document Category Assignment",
                 "verbose_name_plural": "Document Category Assignments",
             },
+        ),
+        migrations.AddField(
+            model_name="document",
+            name="categories",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="documents",
+                through="documents.DocumentCategoryAssignment",
+                to="documents.documentcategory",
+            ),
         ),
         # ==============================================================
         # 3. Signers
