@@ -204,6 +204,34 @@ class TicketList(generics.ListCreateAPIView):
             if project:
                 qs = qs.filter(project_id=project)
 
+        # ticket_type__in (CSV) e/o ticket_type (CSV o ripetuto)
+        type_values = []
+        raw_in = params.get("ticket_type__in")
+        if raw_in:
+            type_values.extend([t.strip() for t in raw_in.split(",") if t.strip()])
+        for raw in params.getlist("ticket_type"):
+            type_values.extend([t.strip() for t in raw.split(",") if t.strip()])
+        type_aliases = {
+            "features": "feature",
+            "evolutiva": "evo",
+            "evolution": "evo",
+            "evolutionary": "evo",
+        }
+        types = []
+        for t in type_values:
+            t_norm = type_aliases.get(t.lower(), t)
+            if t_norm and t_norm not in types:
+                types.append(t_norm)
+        if types:
+            qs = qs.filter(ticket_type__in=types)
+
+        # payments_status: 'true' / 'false'
+        payments_status = params.get("payments_status")
+        if payments_status == "true":
+            qs = qs.filter(payments_status=True)
+        elif payments_status == "false":
+            qs = qs.filter(payments_status=False)
+
         # search: per id (se numerico) o parole in titolo/descrizione
         search = params.get("search")
         if search:
@@ -216,13 +244,17 @@ class TicketList(generics.ListCreateAPIView):
                     qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
 
         # -----------------------------
-        # Filtri periodo su opening_date
+        # Filtri periodo (opening_date | closing_date)
         # -----------------------------
+        date_field = params.get("date_field") or "opening_date"
+        if date_field not in ("opening_date", "closing_date"):
+            raise ValidationError({"date_field": "Valori ammessi: opening_date, closing_date"})
+
         year = params.get("year")
         month = params.get("month")
         if year:
             try:
-                qs = qs.filter(opening_date__year=int(year))
+                qs = qs.filter(**{f"{date_field}__year": int(year)})
             except (TypeError, ValueError):
                 raise ValidationError({"year": "Anno non valido"})
         if month:
@@ -230,7 +262,7 @@ class TicketList(generics.ListCreateAPIView):
                 m = int(month)
                 if m < 1 or m > 12:
                     raise ValidationError({"month": "Mese deve essere 1-12"})
-                qs = qs.filter(opening_date__month=m)
+                qs = qs.filter(**{f"{date_field}__month": m})
             except (TypeError, ValueError):
                 raise ValidationError({"month": "Mese non valido"})
 
@@ -245,9 +277,12 @@ class TicketList(generics.ListCreateAPIView):
             raise ValidationError({"range": "'to' deve essere >= 'from'"})
 
         if start_dt:
-            qs = qs.filter(opening_date__gte=start_dt)
+            qs = qs.filter(**{f"{date_field}__gte": start_dt})
         if end_dt:
-            qs = qs.filter(opening_date__lte=end_dt)
+            # Se 'to' è solo data (YYYY-MM-DD), includi l'intera giornata
+            if to_str and len(to_str) == 10 and to_str.count("-") == 2:
+                end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            qs = qs.filter(**{f"{date_field}__lte": end_dt})
 
         # -----------------------------
         # Ordinamento
